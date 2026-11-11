@@ -1,0 +1,46 @@
+# Build outputs (Gradle / Android / Kotlin)
+build/
+**/build/
+.gradle/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.hprof
+
+# Local environment & signing keys
+local.properties
+*.jks
+*.keystore
+
+# IDE (Android Studio / IntelliJ)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# AI / Agent workspaces & configs
+.agents/
+.gemini/
+.antigravity/
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.codex/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+hs_err_pid*
+replay_pid*
