@@ -17,8 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          SDKMGR=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          echo "Using sdkmanager: $SDKMGR"
+          (yes || true) | "$SDKMGR" --licenses > /dev/null
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
