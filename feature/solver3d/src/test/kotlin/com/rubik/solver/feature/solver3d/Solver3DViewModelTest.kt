@@ -66,6 +66,43 @@ class Solver3DViewModelTest {
         // Reset back to step 0
         vm.reset()
         assertEquals(0, vm.uiState.value.currentStepIndex)
+        assertNull(vm.uiState.value.highlightedStepNumber)
         assertFalse(vm.uiState.value.currentCubeState.isSolved())
+    }
+
+    @Test
+    fun `only one step is highlighted during forward and backward animations`() {
+        val scramble = Move.parseSequence("R U F")
+        val initial = CubieCubeState.solved().applyMoves(scramble).toRubikCubeState()
+        val solution = Move.parseSequence("F' U' R'")
+
+        val vm = Solver3DViewModel()
+        vm.loadSolution(initial, solution)
+        assertNull(vm.uiState.value.highlightedStepNumber)
+
+        // Step 1 animating (0 -> 1): highlightedStepNumber must be 1
+        vm.nextStep()
+        vm.advanceAnimation(0.1f)
+        assertEquals(1, vm.uiState.value.highlightedStepNumber)
+        assertEquals(solution[0], vm.uiState.value.currentMove)
+
+        // Complete step 1, then start step 2 (1 -> 2): highlightedStepNumber must be ONLY 2
+        vm.advanceAnimation(1.0f)
+        assertEquals(1, vm.uiState.value.currentStepIndex)
+        assertEquals(1, vm.uiState.value.highlightedStepNumber)
+
+        vm.nextStep()
+        vm.advanceAnimation(0.1f)
+        assertEquals(1, vm.uiState.value.currentStepIndex)
+        assertEquals(2, vm.uiState.value.activeAnimation?.targetStepIndex)
+        assertEquals(2, vm.uiState.value.highlightedStepNumber)
+        assertEquals(solution[1], vm.uiState.value.currentMove)
+
+        // Complete step 2, then animate backward (2 -> 1): highlightedStepNumber is 2 while undoing step 2
+        vm.advanceAnimation(1.0f)
+        vm.previousStep()
+        vm.advanceAnimation(0.1f)
+        assertEquals(2, vm.uiState.value.highlightedStepNumber)
+        assertEquals(solution[1], vm.uiState.value.currentMove)
     }
 }

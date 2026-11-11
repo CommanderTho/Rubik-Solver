@@ -3,7 +3,6 @@ package com.rubik.solver.feature.solver3d
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -196,7 +198,7 @@ private fun StepInstructionBanner(
                 }
                 Column {
                     Text(
-                        text = "Bước ${uiState.currentStepIndex.coerceAtLeast(1)} / ${uiState.totalSteps}",
+                        text = "Bước ${uiState.highlightedStepNumber ?: uiState.currentStepIndex.coerceAtLeast(1)} / ${uiState.totalSteps}",
                         color = Color.White.copy(alpha = 0.75f),
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -239,19 +241,34 @@ private fun PlayerControllerPanel(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Scrollable Move Chips Strip
+            // Scrollable Move Chips Strip (auto-scrolls to keep active step centered & visible)
             if (uiState.moves.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                val listState = rememberLazyListState()
+                val activeStep = uiState.highlightedStepNumber
+
+                LaunchedEffect(activeStep, uiState.moves.size) {
+                    if (activeStep == null) {
+                        listState.animateScrollToItem(0)
+                        return@LaunchedEffect
+                    }
+                    val targetIndex = (activeStep - 1).coerceIn(0, uiState.moves.lastIndex)
+                    val layoutInfo = listState.layoutInfo
+                    val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+                    val visibleItem = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+                    val itemWidth = visibleItem?.size ?: 110
+                    val centerOffset = -((viewportWidth - itemWidth) / 2).coerceAtLeast(0)
+                    listState.animateScrollToItem(index = targetIndex, scrollOffset = centerOffset)
+                }
+
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    uiState.moves.forEachIndexed { idx, move ->
+                    itemsIndexed(uiState.moves) { idx, move ->
                         val stepNumber = idx + 1
-                        val isCurrent = stepNumber == uiState.currentStepIndex ||
-                            uiState.activeAnimation?.targetStepIndex == stepNumber
-                        val isDone = stepNumber <= uiState.currentStepIndex
+                        val isCurrent = stepNumber == activeStep
+                        val isDone = stepNumber <= uiState.currentStepIndex && !isCurrent
 
                         Box(
                             modifier = Modifier

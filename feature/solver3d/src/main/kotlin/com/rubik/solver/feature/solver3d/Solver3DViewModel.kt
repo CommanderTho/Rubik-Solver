@@ -29,15 +29,14 @@ data class Solver3DUiState(
     val currentCubeState: CubieCubeState get() = stepStates[currentStepIndex.coerceIn(0, stepStates.lastIndex)]
     val isAtStart: Boolean get() = currentStepIndex == 0 && activeAnimation == null
     val isAtEnd: Boolean get() = currentStepIndex >= moves.size && activeAnimation == null
-    val currentMove: Move?
+    val highlightedStepNumber: Int?
         get() = when {
-            activeAnimation != null -> moves.getOrNull(
-                if (activeAnimation.targetStepIndex > currentStepIndex) currentStepIndex
-                else activeAnimation.targetStepIndex
-            )
-            currentStepIndex in 1..moves.size -> moves[currentStepIndex - 1]
+            activeAnimation != null -> maxOf(currentStepIndex, activeAnimation.targetStepIndex)
+            currentStepIndex in 1..moves.size -> currentStepIndex
             else -> null
         }
+    val currentMove: Move?
+        get() = highlightedStepNumber?.let { moves.getOrNull(it - 1) }
     val nextMoveToExecute: Move? get() = moves.getOrNull(currentStepIndex)
 }
 
