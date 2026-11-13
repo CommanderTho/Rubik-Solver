@@ -35,7 +35,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
@@ -220,7 +219,6 @@ fun ScannerScreen(
         RubikOverlayGrid(
             previewColors = uiState.capturedFaces[uiState.currentFace] ?: uiState.livePreviewColors,
             isCaptured = uiState.currentFace in uiState.capturedFaces,
-            autoCaptureProgress = uiState.autoCaptureProgress,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -285,42 +283,19 @@ fun ScannerScreen(
                         )
                     }
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    IconButton(
+                        onClick = viewModel::toggleTorch,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f))
                     ) {
-                        IconButton(
-                            onClick = viewModel::toggleTorch,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.14f))
-                        ) {
-                            Icon(
-                                imageVector = if (uiState.isTorchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                                contentDescription = "Bật/tắt đèn flash",
-                                tint = if (uiState.isTorchEnabled) Color(0xFFFACC15) else Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = viewModel::toggleAutoCapture,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (uiState.autoCaptureEnabled) Color(0xFF0284C7)
-                                    else Color.White.copy(alpha = 0.14f)
-                                )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoMode,
-                                contentDescription = "Tự động nhận diện và chụp",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (uiState.isTorchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                            contentDescription = "Bật/tắt đèn flash",
+                            tint = if (uiState.isTorchEnabled) Color(0xFFFACC15) else Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -408,51 +383,41 @@ fun ScannerScreen(
                     Text("Chụp lại")
                 }
 
-                Box(contentAlignment = Alignment.Center) {
-                    if (uiState.autoCaptureProgress > 0f) {
-                        CircularProgressIndicator(
-                            progress = { uiState.autoCaptureProgress },
-                            modifier = Modifier.size(68.dp),
-                            color = Color(0xFF22C55E),
-                            strokeWidth = 4.dp
-                        )
-                    }
-                    FloatingActionButton(
-                        onClick = {
-                            val capture = imageCapture ?: return@FloatingActionButton
-                            capture.takePicture(
-                                ContextCompat.getMainExecutor(context),
-                                object : ImageCapture.OnImageCapturedCallback() {
-                                    override fun onCaptureSuccess(image: ImageProxy) {
-                                        try {
-                                            val bmp = image.toBitmap()
-                                            viewModel.captureFromBitmap(
-                                                bitmap = bmp,
-                                                rotationDegrees = image.imageInfo.rotationDegrees,
-                                                overlayFraction = OVERLAY_FRACTION
-                                            )
-                                        } finally {
-                                            image.close()
-                                        }
-                                    }
-
-                                    override fun onError(exception: ImageCaptureException) {
-                                        Log.e("ScannerScreen", "Capture failed", exception)
+                FloatingActionButton(
+                    onClick = {
+                        val capture = imageCapture ?: return@FloatingActionButton
+                        capture.takePicture(
+                            ContextCompat.getMainExecutor(context),
+                            object : ImageCapture.OnImageCapturedCallback() {
+                                override fun onCaptureSuccess(image: ImageProxy) {
+                                    try {
+                                        val bmp = image.toBitmap()
+                                        viewModel.captureFromBitmap(
+                                            bitmap = bmp,
+                                            rotationDegrees = image.imageInfo.rotationDegrees,
+                                            overlayFraction = OVERLAY_FRACTION
+                                        )
+                                    } finally {
+                                        image.close()
                                     }
                                 }
-                            )
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        if (uiState.isCapturing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Chụp mặt Rubik")
-                        }
+
+                                override fun onError(exception: ImageCaptureException) {
+                                    Log.e("ScannerScreen", "Capture failed", exception)
+                                }
+                            }
+                        )
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    if (uiState.isCapturing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Chụp mặt Rubik")
                     }
                 }
 
@@ -520,7 +485,6 @@ private fun FaceStatusChip(
 private fun RubikOverlayGrid(
     previewColors: List<CubeColor>?,
     isCaptured: Boolean,
-    autoCaptureProgress: Float,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -542,11 +506,7 @@ private fun RubikOverlayGrid(
         }
 
         // Outer frame border
-        val frameColor = when {
-            isCaptured -> Color(0xFF22C55E)
-            autoCaptureProgress > 0f -> Color(0xFF38BDF8)
-            else -> Color.White
-        }
+        val frameColor = if (isCaptured) Color(0xFF22C55E) else Color.White
         drawRoundRect(
             color = frameColor,
             topLeft = Offset(left, top),

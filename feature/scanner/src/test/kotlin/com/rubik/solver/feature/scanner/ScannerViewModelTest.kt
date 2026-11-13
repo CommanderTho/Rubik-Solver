@@ -40,9 +40,8 @@ class ScannerViewModelTest {
     }
 
     @Test
-    fun `auto detects arbitrary starting face by center color and auto captures when stable`() {
-        var fakeTime = 2_000L
-        val vm = ScannerViewModel(clockMs = { fakeTime })
+    fun `auto detects arbitrary starting face by center color and requires manual capture`() {
+        val vm = ScannerViewModel()
 
         // User starts with RED (RIGHT face) instead of UP/FRONT
         val redFaceScan = fakeScan(centerColor = CubeColor.RED, edgeColor = CubeColor.BLUE)
@@ -52,10 +51,13 @@ class ScannerViewModelTest {
         vm.onLiveFrameAnalyzed(redFaceScan)
         assertEquals(CubeFace.RIGHT, vm.uiState.value.currentFace)
 
-        // Continue steady frames until auto-capture triggers
-        vm.onLiveFrameAnalyzed(redFaceScan)
-        vm.onLiveFrameAnalyzed(redFaceScan)
-        vm.onLiveFrameAnalyzed(redFaceScan)
+        // Multiple steady frames do NOT auto-capture (strictly manual capture now)
+        repeat(10) { vm.onLiveFrameAnalyzed(redFaceScan) }
+        assertEquals(0, vm.uiState.value.scannedCount)
+        assertTrue(vm.uiState.value.capturedFaces.isEmpty())
+
+        // Manual capture triggered by user button click
+        vm.applyCaptureResult(redFaceScan)
 
         assertEquals(1, vm.uiState.value.scannedCount)
         assertEquals(redFaceScan.colors, vm.uiState.value.capturedFaces[CubeFace.RIGHT])
