@@ -23,7 +23,7 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "Previous tag: $PREV_TAG"
-          echo "## Các thay đổi trong phiên bản ${{ github.ref_name }}:" > release_notes.md
+          echo "## What's Changed in ${{ github.ref_name }}:" > release_notes.md
           echo "" >> release_notes.md
           if [ -n "$PREV_TAG" ]; then
             git log "${PREV_TAG}..HEAD" --pretty=format:"* %s (%h)" >> release_notes.md
@@ -32,7 +32,7 @@ jobs:
           fi
           echo "" >> release_notes.md
           echo "---" >> release_notes.md
-          echo "📦 **Tải ứng dụng:** [Solver-${{ github.ref_name }}.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Solver-${{ github.ref_name }}.apk)" >> release_notes.md
+          echo "📦 **Download App:** [Solver-${{ github.ref_name }}.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Solver-${{ github.ref_name }}.apk)" >> release_notes.md
           cat release_notes.md
 
       - name: Accept Android SDK licenses
