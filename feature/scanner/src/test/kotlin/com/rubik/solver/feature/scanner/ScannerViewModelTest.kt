@@ -61,9 +61,52 @@ class ScannerViewModelTest {
 
         assertEquals(1, vm.uiState.value.scannedCount)
         assertEquals(redFaceScan.colors, vm.uiState.value.capturedFaces[CubeFace.RIGHT])
-        // After capturing RIGHT, 3D guide rotates to BACK next
+        // After capturing RIGHT, 3D guide rotates to adjacent face BACK next with ROTATE_LEFT arrow
         assertEquals(CubeFace.BACK, vm.uiState.value.currentFace)
+        assertEquals(GuideRotationDirection.ROTATE_LEFT, vm.uiState.value.guideRotationDirection)
+        assertTrue(vm.uiState.value.rotationInstructionVi.contains("mũi tên"))
         assertFalse(vm.uiState.value.allFacesScanned)
+    }
+
+    @Test
+    fun `starting with UP face guides to adjacent side faces then DOWN`() {
+        val vm = ScannerViewModel()
+        val upScan = fakeScan(centerColor = CubeColor.WHITE)
+
+        // Capture UP first
+        vm.applyCaptureResult(upScan)
+        assertEquals(1, vm.uiState.value.scannedCount)
+        // First adjacent neighbor of UP is FRONT
+        assertEquals(CubeFace.FRONT, vm.uiState.value.currentFace)
+        assertEquals(GuideRotationDirection.TILT_UP, vm.uiState.value.guideRotationDirection)
+
+        // Capture FRONT -> next adjacent is RIGHT
+        val frontScan = fakeScan(centerColor = CubeColor.GREEN)
+        vm.applyCaptureResult(frontScan)
+        assertEquals(CubeFace.RIGHT, vm.uiState.value.currentFace)
+        assertEquals(GuideRotationDirection.ROTATE_LEFT, vm.uiState.value.guideRotationDirection)
+    }
+
+    @Test
+    fun `FaceAdjacencyGuide always traverses adjacent faces`() {
+        val scanned = mutableSetOf<CubeFace>()
+        var current = CubeFace.UP
+        scanned.add(current)
+
+        while (scanned.size < 6) {
+            val next = FaceAdjacencyGuide.findNextGuidedFace(current, scanned)
+            org.junit.Assert.assertNotNull(next)
+            // If fewer than 5 scanned, next must be in adjacent faces of current
+            if (scanned.size < 5) {
+                assertTrue(
+                    "Next face $next should be adjacent to $current",
+                    FaceAdjacencyGuide.getAdjacentFaces(current).contains(next)
+                )
+            }
+            scanned.add(next!!)
+            current = next
+        }
+        assertEquals(6, scanned.size)
     }
 
     @Test

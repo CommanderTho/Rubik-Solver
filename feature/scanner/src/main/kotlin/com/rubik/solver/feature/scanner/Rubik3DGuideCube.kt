@@ -2,6 +2,10 @@ package com.rubik.solver.feature.scanner
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
@@ -14,8 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.dp
 import com.rubik.solver.core.model.CubeColor
 import com.rubik.solver.core.model.CubeFace
 import kotlin.math.PI
@@ -128,16 +135,29 @@ private fun targetViewQuaternion(face: CubeFace): Quat {
  * - Smoothly rotates in 3D via quaternion SLERP toward [targetFace] so the user
  *   can rotate their physical cube along with the 3D model.
  * - Immediately paints each captured face with its detected [capturedFaces] colors.
+ * - Displays a dynamic animated 3D rotation arrow indicating the twist direction [rotationDirection].
  */
 @Composable
 fun Rubik3DGuideCube(
     targetFace: CubeFace,
     capturedFaces: Map<CubeFace, List<CubeColor>>,
+    rotationDirection: GuideRotationDirection = GuideRotationDirection.NONE,
     modifier: Modifier = Modifier
 ) {
     var fromQuat by remember { mutableStateOf(targetViewQuaternion(targetFace)) }
     var toQuat by remember { mutableStateOf(targetViewQuaternion(targetFace)) }
     val animProgress = remember { Animatable(1f) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "ArrowPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.65f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(650, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
 
     LaunchedEffect(targetFace) {
         val current = Quat.slerp(fromQuat, toQuat, animProgress.value)
@@ -155,7 +175,7 @@ fun Rubik3DGuideCube(
     Canvas(modifier = modifier) {
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val cubeHalfSize = minOf(size.width, size.height) * 0.29f
+        val cubeHalfSize = minOf(size.width, size.height) * 0.28f
         val cameraDistance = 4.6f
         val focalScale = cubeHalfSize * (cameraDistance - 1.0f)
 
@@ -246,5 +266,147 @@ fun Rubik3DGuideCube(
                 )
             }
         }
+
+        // Draw animated 3D rotation guide arrow
+        drawGuideRotationArrow(
+            direction = rotationDirection,
+            cx = cx,
+            cy = cy,
+            cubeHalfSize = cubeHalfSize,
+            pulseAlpha = pulseAlpha
+        )
+    }
+}
+
+private fun DrawScope.drawGuideRotationArrow(
+    direction: GuideRotationDirection,
+    cx: Float,
+    cy: Float,
+    cubeHalfSize: Float,
+    pulseAlpha: Float
+) {
+    if (direction == GuideRotationDirection.NONE) return
+
+    val arrowColor = Color(0xFF38BDF8).copy(alpha = pulseAlpha)
+    val glowColor = Color(0xFF0284C7).copy(alpha = 0.35f * pulseAlpha)
+    val strokeWidthPx = 3.5.dp.toPx()
+    val glowWidthPx = 7.dp.toPx()
+    val headLen = 11.dp.toPx()
+    val headWidth = 7.dp.toPx()
+
+    fun drawArrow(points: List<Offset>, tangent: Offset) {
+        if (points.size < 2) return
+        val path = Path().apply {
+            moveTo(points.first().x, points.first().y)
+            for (i in 1 until points.size) {
+                lineTo(points[i].x, points[i].y)
+            }
+        }
+        // Draw soft glow
+        drawPath(
+            path = path,
+            color = glowColor,
+            style = Stroke(width = glowWidthPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+        // Draw main bright stroke
+        drawPath(
+            path = path,
+            color = arrowColor,
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+
+        // Draw solid arrowhead at tip
+        val tip = points.last()
+        val len = sqrt(tangent.x * tangent.x + tangent.y * tangent.y).coerceAtLeast(1e-4f)
+        val dirX = tangent.x / len
+        val dirY = tangent.y / len
+        val perpX = -dirY
+        val perpY = dirX
+
+        val baseCenter = Offset(tip.x - dirX * headLen, tip.y - dirY * headLen)
+        val wing1 = Offset(baseCenter.x + perpX * headWidth, baseCenter.y + perpY * headWidth)
+        val wing2 = Offset(baseCenter.x - perpX * headWidth, baseCenter.y - perpY * headWidth)
+
+        val headPath = Path().apply {
+            moveTo(tip.x, tip.y)
+            lineTo(wing1.x, wing1.y)
+            lineTo(wing2.x, wing2.y)
+            close()
+        }
+        drawPath(headPath, color = glowColor)
+        drawPath(headPath, color = arrowColor)
+    }
+
+    when (direction) {
+        GuideRotationDirection.ROTATE_LEFT -> {
+            // Horizontal arc across the front bottom curving to the left
+            val rx = cubeHalfSize * 1.35f
+            val ry = cubeHalfSize * 0.58f
+            val steps = 24
+            val points = (0..steps).map { i ->
+                val t = (0.15f + (0.85f - 0.15f) * (i.toFloat() / steps)) * PI.toFloat()
+                Offset(cx + rx * cos(t), cy + ry * sin(t))
+            }
+            val endT = 0.85f * PI.toFloat()
+            val tangent = Offset(-rx * sin(endT), ry * cos(endT))
+            drawArrow(points, tangent)
+        }
+
+        GuideRotationDirection.ROTATE_RIGHT -> {
+            // Horizontal arc across the front bottom curving to the right
+            val rx = cubeHalfSize * 1.35f
+            val ry = cubeHalfSize * 0.58f
+            val steps = 24
+            val points = (0..steps).map { i ->
+                val t = (0.85f - (0.85f - 0.15f) * (i.toFloat() / steps)) * PI.toFloat()
+                Offset(cx + rx * cos(t), cy + ry * sin(t))
+            }
+            val endT = 0.15f * PI.toFloat()
+            val tangent = Offset(rx * sin(endT), -ry * cos(endT))
+            drawArrow(points, tangent)
+        }
+
+        GuideRotationDirection.TILT_DOWN -> {
+            // Vertical arc curving down toward the front
+            val rx = cubeHalfSize * 0.58f
+            val ry = cubeHalfSize * 1.35f
+            val steps = 24
+            val points = (0..steps).map { i ->
+                val t = (-0.35f + 0.70f * (i.toFloat() / steps)) * PI.toFloat()
+                Offset(cx + rx * cos(t), cy + ry * sin(t))
+            }
+            val endT = 0.35f * PI.toFloat()
+            val tangent = Offset(-rx * sin(endT), ry * cos(endT))
+            drawArrow(points, tangent)
+        }
+
+        GuideRotationDirection.TILT_UP -> {
+            // Vertical arc curving up toward the top
+            val rx = cubeHalfSize * 0.58f
+            val ry = cubeHalfSize * 1.35f
+            val steps = 24
+            val points = (0..steps).map { i ->
+                val t = (0.35f - 0.70f * (i.toFloat() / steps)) * PI.toFloat()
+                Offset(cx + rx * cos(t), cy + ry * sin(t))
+            }
+            val endT = -0.35f * PI.toFloat()
+            val tangent = Offset(rx * sin(endT), -ry * cos(endT))
+            drawArrow(points, tangent)
+        }
+
+        GuideRotationDirection.FLIP_180 -> {
+            // 180° loop arrow
+            val r = cubeHalfSize * 1.25f
+            val steps = 28
+            val points = (0..steps).map { i ->
+                val t = (0f + 1.05f * (i.toFloat() / steps)) * PI.toFloat()
+                Offset(cx + r * cos(t), cy - r * sin(t))
+            }
+            val endT = 1.05f * PI.toFloat()
+            val tangent = Offset(-r * sin(endT), -r * cos(endT))
+            drawArrow(points, tangent)
+        }
+
+        GuideRotationDirection.NONE -> {}
     }
 }

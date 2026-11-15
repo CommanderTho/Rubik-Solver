@@ -242,12 +242,13 @@ fun ScannerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // 3D Guide Cube (starts all-black, rotates to guide, fills captured colors)
+                    // 3D Guide Cube (starts all-black, rotates to guide, fills captured colors, animated rotation arrow)
                     Rubik3DGuideCube(
                         targetFace = uiState.currentFace,
                         capturedFaces = uiState.capturedFaces,
+                        rotationDirection = uiState.guideRotationDirection,
                         modifier = Modifier
-                            .size(92.dp)
+                            .size(96.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF0F172A))
                     )

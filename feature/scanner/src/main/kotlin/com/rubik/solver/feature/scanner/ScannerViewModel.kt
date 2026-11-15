@@ -27,8 +27,9 @@ data class ScannerUiState(
     val isTorchEnabled: Boolean = false,
     val isCapturing: Boolean = false,
     val manualFaceLock: Boolean = false,
-    val rotationInstructionVi: String = "Đưa mặt Rubik vào khung — Nhấn nút chụp để lưu màu",
+    val rotationInstructionVi: String = "Chụp một mặt bất kỳ — App sẽ tự nhận diện và hướng dẫn tiếp",
     val justCapturedFace: CubeFace? = null,
+    val guideRotationDirection: GuideRotationDirection = GuideRotationDirection.NONE,
     val errorMessage: String? = null
 ) {
     val scannedCount: Int get() = capturedFaces.size
@@ -58,9 +59,11 @@ class ScannerViewModel(
         pendingAutoFace = null
         pendingAutoFaceStreak = 0
         _uiState.update {
+            val direction = FaceAdjacencyGuide.getRotationDirection(from = it.currentFace, to = face)
             it.copy(
                 currentFace = face,
                 manualFaceLock = true,
+                guideRotationDirection = direction,
                 rotationInstructionVi = "Đang chọn thủ công: ${face.displayNameVi} — Nhấn nút chụp để xác nhận",
                 errorMessage = null
             )
@@ -91,7 +94,11 @@ class ScannerViewModel(
 
             if (pendingAutoFaceStreak >= FACE_SWITCH_STREAK && detectedFace != state.currentFace) {
                 updatedFace = detectedFace
-                updatedInstruction = "Đã nhận diện tâm ${detectedFace.displayNameVi} — Nhấn nút chụp để xác nhận"
+                updatedInstruction = if (state.capturedFaces.isEmpty()) {
+                    "Đang hướng vào ${detectedFace.displayNameVi} — Nhấn nút chụp để bắt đầu"
+                } else {
+                    "Đang hướng vào ${detectedFace.displayNameVi} — Nhấn nút chụp để xác nhận"
+                }
             }
         } else {
             pendingAutoFace = null
@@ -147,15 +154,22 @@ class ScannerViewModel(
             val updatedFaces = state.capturedFaces + (targetFace to result.colors)
             val updatedLowConf = state.lowConfidenceByFace + (targetFace to result.lowConfidenceIndices)
 
-            val nextUnscanned = findNextGuidedFace(
+            // Select next face prioritizing adjacent neighbors of the face just scanned
+            val nextUnscanned = FaceAdjacencyGuide.findNextGuidedFace(
                 justScanned = targetFace,
-                capturedFaces = updatedFaces
+                capturedFaces = updatedFaces.keys
             )
+
+            val nextDirection = if (nextUnscanned != null) {
+                FaceAdjacencyGuide.getRotationDirection(from = targetFace, to = nextUnscanned)
+            } else {
+                GuideRotationDirection.NONE
+            }
 
             val nextInstruction = if (nextUnscanned == null) {
                 "Đã quét đủ 6/6 mặt! Chạm \"Sửa (6/6)\" để kiểm tra & giải."
             } else {
-                rotationPrompt(from = targetFace, to = nextUnscanned)
+                FaceAdjacencyGuide.rotationPrompt(from = targetFace, to = nextUnscanned)
             }
 
             state.copy(
@@ -164,6 +178,7 @@ class ScannerViewModel(
                 currentFace = nextUnscanned ?: targetFace,
                 manualFaceLock = false,
                 justCapturedFace = targetFace,
+                guideRotationDirection = nextDirection,
                 rotationInstructionVi = nextInstruction,
                 isLowLight = result.isLowLight,
                 hasGlareRisk = result.hasGlareRisk,
@@ -182,6 +197,7 @@ class ScannerViewModel(
                 lowConfidenceByFace = state.lowConfidenceByFace - face,
                 currentFace = face,
                 manualFaceLock = true,
+                guideRotationDirection = GuideRotationDirection.NONE,
                 rotationInstructionVi = "Chụp lại ${face.displayNameVi} — Nhấn nút chụp"
             )
         }
@@ -204,50 +220,7 @@ class ScannerViewModel(
     companion object {
         private const val FACE_SWITCH_STREAK = 2
 
-        private val GUIDED_RING_ORDER = listOf(
-            CubeFace.FRONT,
-            CubeFace.RIGHT,
-            CubeFace.BACK,
-            CubeFace.LEFT,
-            CubeFace.UP,
-            CubeFace.DOWN
-        )
-
         fun faceForCenterColor(color: CubeColor): CubeFace =
             CubeFace.entries.first { it.defaultColor == color }
-
-        fun findNextGuidedFace(
-            justScanned: CubeFace,
-            capturedFaces: Map<CubeFace, List<CubeColor>>
-        ): CubeFace? {
-            val startIdx = GUIDED_RING_ORDER.indexOf(justScanned).coerceAtLeast(0)
-            for (offset in 1..GUIDED_RING_ORDER.size) {
-                val candidate = GUIDED_RING_ORDER[(startIdx + offset) % GUIDED_RING_ORDER.size]
-                if (candidate !in capturedFaces) return candidate
-            }
-            return null
-        }
-
-        fun rotationPrompt(from: CubeFace, to: CubeFace): String = when (from to to) {
-            CubeFace.FRONT to CubeFace.RIGHT,
-            CubeFace.RIGHT to CubeFace.BACK,
-            CubeFace.BACK to CubeFace.LEFT,
-            CubeFace.LEFT to CubeFace.FRONT -> "Xoay khối sang TRÁI 90° theo hình 3D -> ${to.displayNameVi}"
-
-            CubeFace.RIGHT to CubeFace.FRONT,
-            CubeFace.BACK to CubeFace.RIGHT,
-            CubeFace.LEFT to CubeFace.BACK,
-            CubeFace.FRONT to CubeFace.LEFT -> "Xoay khối sang PHẢI 90° theo hình 3D -> ${to.displayNameVi}"
-
-            CubeFace.LEFT to CubeFace.UP,
-            CubeFace.FRONT to CubeFace.UP,
-            CubeFace.RIGHT to CubeFace.UP,
-            CubeFace.BACK to CubeFace.UP -> "Nghiêng mặt TRÊN về phía trước 90° -> ${to.displayNameVi}"
-
-            CubeFace.UP to CubeFace.DOWN -> "Lật ngược khối 180° -> ${to.displayNameVi}"
-            CubeFace.DOWN to CubeFace.UP -> "Lật ngược khối 180° -> ${to.displayNameVi}"
-
-            else -> "Xoay khối theo mô hình 3D để chụp ${to.displayNameVi}"
-        }
     }
 }
