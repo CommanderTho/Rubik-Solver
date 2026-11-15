@@ -47,7 +47,9 @@ class RubikFaceDetector {
     fun detectFromBitmap(
         bitmap: Bitmap,
         rotationDegrees: Int = 0,
-        overlaySizeFraction: Float = 0.68f
+        overlaySizeFraction: Float = 0.64f,
+        viewWidth: Int = 0,
+        viewHeight: Int = 0
     ): FaceScanResult {
         check(OpenCvInitializer.init()) {
             "OpenCV chưa sẵn sàng trên thiết bị."
@@ -62,18 +64,34 @@ class RubikFaceDetector {
             Utils.bitmapToMat(orientedBitmap, rgbaMat)
             Imgproc.cvtColor(rgbaMat, rgbMat, Imgproc.COLOR_RGBA2RGB)
 
-            // Crop centered square corresponding to the CameraX 3x3 overlay grid
-            val side = (minOf(rgbMat.cols(), rgbMat.rows()) * overlaySizeFraction)
-                .toInt()
-                .coerceAtLeast(90)
-            val startX = ((rgbMat.cols() - side) / 2).coerceAtLeast(0)
-            val startY = ((rgbMat.rows() - side) / 2).coerceAtLeast(0)
-            val cropRect = Rect(
-                startX,
-                startY,
-                side.coerceAtMost(rgbMat.cols() - startX),
-                side.coerceAtMost(rgbMat.rows() - startY)
-            )
+            // Crop centered square exactly matching the CameraX 3x3 overlay grid displayed on screen
+            val cropRect = if (viewWidth > 0 && viewHeight > 0) {
+                val bw = rgbMat.cols().toFloat()
+                val bh = rgbMat.rows().toFloat()
+                val vw = viewWidth.toFloat()
+                val vh = viewHeight.toFloat()
+
+                // Exact scale factor used by PreviewView with ScaleType.FILL_CENTER (CenterCrop)
+                val scale = maxOf(vw / bw, vh / bh)
+                val sideOnScreen = minOf(vw, vh) * overlaySizeFraction
+                val sideInBitmap = (sideOnScreen / scale).toInt().coerceIn(90, minOf(rgbMat.cols(), rgbMat.rows()))
+
+                val startX = ((rgbMat.cols() - sideInBitmap) / 2).coerceIn(0, rgbMat.cols() - sideInBitmap)
+                val startY = ((rgbMat.rows() - sideInBitmap) / 2).coerceIn(0, rgbMat.rows() - sideInBitmap)
+                Rect(startX, startY, sideInBitmap, sideInBitmap)
+            } else {
+                val side = (minOf(rgbMat.cols(), rgbMat.rows()) * overlaySizeFraction)
+                    .toInt()
+                    .coerceAtLeast(90)
+                val startX = ((rgbMat.cols() - side) / 2).coerceAtLeast(0)
+                val startY = ((rgbMat.rows() - side) / 2).coerceAtLeast(0)
+                Rect(
+                    startX,
+                    startY,
+                    side.coerceAtMost(rgbMat.cols() - startX),
+                    side.coerceAtMost(rgbMat.rows() - startY)
+                )
+            }
 
             val croppedRgb = Mat(rgbMat, cropRect)
             val resizedRgb = Mat()

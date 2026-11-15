@@ -75,4 +75,23 @@ class KociembaRubikSolverTest {
         val success = result as SolveResult.Success
         assertEquals(true, scrambledCubie.applyMoves(success.moves).isSolved())
     }
+
+    @Test
+    fun `respects search time budget and finds valid solution with longer search`() = runTest {
+        val scramble = Move.parseSequence("B2 D2 L' F2 R' U2 R2 D2 B2 F2 R' U' R D B' F' L' R D' B2")
+        val scrambledCubie = CubieCubeState.solved().applyMoves(scramble)
+        val state = scrambledCubie.toRubikCubeState()
+
+        val quickResult = solver.solve(state, maxSearchTimeMs = 500L)
+        assertTrue(quickResult is SolveResult.Success)
+        val quickMoves = (quickResult as SolveResult.Success).moves
+
+        val longerResult = solver.solve(state, maxSearchTimeMs = 2500L)
+        assertTrue(longerResult is SolveResult.Success)
+        val longerMoves = (longerResult as SolveResult.Success).moves
+
+        assertTrue("Longer search should produce moves <= quick search: ${longerMoves.size} vs ${quickMoves.size}",
+            longerMoves.size <= quickMoves.size)
+        assertTrue(scrambledCubie.applyMoves(longerMoves).isSolved())
+    }
 }

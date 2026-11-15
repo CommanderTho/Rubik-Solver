@@ -20,6 +20,18 @@ sealed interface SolveResult {
 
 interface RubikSolver : SolvabilityVerifier {
     suspend fun warmUp()
-    suspend fun solve(state: RubikCubeState): SolveResult
-    suspend fun solveFacelets(faceletString: String): SolveResult
+    suspend fun solve(
+        state: RubikCubeState,
+        maxSearchTimeMs: Long = DEFAULT_SEARCH_TIME_MS
+    ): SolveResult
+    suspend fun solveFacelets(
+        faceletString: String,
+        maxSearchTimeMs: Long = DEFAULT_SEARCH_TIME_MS
+    ): SolveResult
+
+    companion object {
+        const val DEFAULT_SEARCH_TIME_MS = 2000L
+        const val MIN_SEARCH_TIME_MS = 500L
+        const val MAX_SEARCH_TIME_MS = 15000L
+    }
 }

@@ -66,6 +66,12 @@ class ScannerViewModelTest {
         assertEquals(GuideRotationDirection.ROTATE_LEFT, vm.uiState.value.guideRotationDirection)
         assertTrue(vm.uiState.value.rotationInstructionVi.contains("mũi tên"))
         assertFalse(vm.uiState.value.allFacesScanned)
+
+        // Live frames analyzed in transit should NOT overwrite the rotation instruction
+        val arbitraryScan = fakeScan(centerColor = CubeColor.ORANGE, edgeColor = CubeColor.YELLOW)
+        repeat(5) { vm.onLiveFrameAnalyzed(arbitraryScan) }
+        assertTrue(vm.uiState.value.rotationInstructionVi.contains("mũi tên"))
+        assertEquals(CubeFace.BACK, vm.uiState.value.currentFace)
     }
 
     @Test
@@ -126,5 +132,25 @@ class ScannerViewModelTest {
 
         assertEquals(CubeFace.BACK, vm.uiState.value.currentFace)
         assertEquals(redScan.colors, vm.uiState.value.capturedFaces[CubeFace.RIGHT])
+    }
+
+    @Test
+    fun `resetAll clears all captured faces and returns to initial scanning state`() {
+        val vm = ScannerViewModel()
+        val upScan = fakeScan(centerColor = CubeColor.WHITE)
+        val frontScan = fakeScan(centerColor = CubeColor.GREEN)
+
+        vm.applyCaptureResult(upScan)
+        vm.applyCaptureResult(frontScan)
+        assertEquals(2, vm.uiState.value.scannedCount)
+
+        vm.resetAll()
+
+        assertEquals(0, vm.uiState.value.scannedCount)
+        assertTrue(vm.uiState.value.capturedFaces.isEmpty())
+        assertTrue(vm.uiState.value.lowConfidenceByFace.isEmpty())
+        assertEquals(CubeFace.FRONT, vm.uiState.value.currentFace)
+        assertEquals(GuideRotationDirection.NONE, vm.uiState.value.guideRotationDirection)
+        assertTrue(vm.uiState.value.rotationInstructionVi.contains("Chụp một mặt bất kỳ"))
     }
 }

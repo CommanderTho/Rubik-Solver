@@ -27,11 +27,13 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +100,65 @@ fun EditorScreen(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
+                }
+
+                // Search Time / Optimization Selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Thời gian tìm kiếm: ${uiState.searchTimeSeconds}s",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Text(
+                        text = when (uiState.searchTimeSeconds) {
+                            1 -> "Nhanh (≤21 bước)"
+                            in 2..3 -> "Chuẩn (≤20 bước)"
+                            in 4..6 -> "Tối ưu (≤19 bước)"
+                            else -> "Ngắn nhất có thể"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        1 to "1s",
+                        3 to "3s",
+                        5 to "5s",
+                        10 to "10s"
+                    ).forEach { (sec, label) ->
+                        val isSelected = uiState.searchTimeSeconds == sec
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.setSearchTimeSeconds(sec) },
+                            label = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 Button(

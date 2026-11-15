@@ -41,17 +41,23 @@ class KociembaRubikSolver(
         }
     }
 
-    override suspend fun solve(state: RubikCubeState): SolveResult {
+    override suspend fun solve(
+        state: RubikCubeState,
+        maxSearchTimeMs: Long
+    ): SolveResult {
         val validation = CubeValidator.validate(state, solvabilityVerifier = this)
         if (!validation.isValid || validation.faceletString == null) {
             val message = validation.issues.firstOrNull()?.messageVi
                 ?: "Trạng thái khối Rubik chưa hợp lệ."
             return SolveResult.Failure(message)
         }
-        return solveFacelets(validation.faceletString!!)
+        return solveFacelets(validation.faceletString!!, maxSearchTimeMs)
     }
 
-    override suspend fun solveFacelets(faceletString: String): SolveResult = withContext(dispatcher) {
+    override suspend fun solveFacelets(
+        faceletString: String,
+        maxSearchTimeMs: Long
+    ): SolveResult = withContext(dispatcher) {
         val verifyError = verify(faceletString)
         if (verifyError != null) {
             return@withContext SolveResult.Failure(verifyError)
@@ -70,21 +76,48 @@ class KociembaRubikSolver(
             Search.init()
         }
 
-        // Request <= 20 moves first with generous probe budget; fall back to 21 if needed.
         val search = Search()
-        var raw = search.solution(faceletString, 20, 5_000_000L, 500L, 0)
+        // Provide probeMin to encourage finding shorter solutions on initial pass
+        val probeMin = if (maxSearchTimeMs >= 3000L) 10_000L else 500L
+        var raw = search.solution(faceletString, 21, 5_000_000L, probeMin, 0)
         if (raw.startsWith("Error 7") || raw.startsWith("Error 8")) {
-            raw = search.solution(faceletString, 21, 10_000_000L, 0L, 0)
+            raw = search.solution(faceletString, 24, 10_000_000L, 0L, 0)
         }
-        val durationMs = System.currentTimeMillis() - startTime
 
         if (raw.startsWith("Error")) {
             return@withContext SolveResult.Failure(mapSolverError(raw))
         }
 
-        val moves = Move.parseSequence(raw)
+        var bestMoves = Move.parseSequence(raw)
+        var bestRaw = raw
+
+        // Iteratively search for strictly shorter solutions within time budget
+        val sliceProbeMax = 500_000L
+        val sliceProbeMin = 100L
+
+        while (System.currentTimeMillis() - startTime < maxSearchTimeMs && bestMoves.size > 18) {
+            val remainingMs = maxSearchTimeMs - (System.currentTimeMillis() - startTime)
+            if (remainingMs < 50) break
+
+            val nextRaw = search.next(sliceProbeMax, sliceProbeMin, 0)
+            if (nextRaw.startsWith("Error 7")) {
+                // No shorter solution exists in phase 1 search tree
+                break
+            }
+            if (nextRaw.startsWith("Error")) {
+                continue
+            }
+            val candidate = Move.parseSequence(nextRaw)
+            if (candidate.isNotEmpty() && candidate.size < bestMoves.size) {
+                bestMoves = candidate
+                bestRaw = nextRaw
+            }
+        }
+
+        val durationMs = System.currentTimeMillis() - startTime
+
         SolveResult.Success(
-            moves = moves,
+            moves = bestMoves,
             faceletString = faceletString,
             solveDurationMs = durationMs
         )

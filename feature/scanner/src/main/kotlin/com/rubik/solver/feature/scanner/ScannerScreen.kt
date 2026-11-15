@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -41,7 +43,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +57,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -143,6 +148,34 @@ fun ScannerScreen(
     }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = {
+                Text("Đặt lại khối Rubik")
+            },
+            text = {
+                Text("Bạn có chắc muốn xóa tất cả ${uiState.scannedCount} mặt đã chụp và bắt đầu quét lại từ đầu không?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetAll()
+                        showResetConfirmDialog = false
+                    }
+                ) {
+                    Text("Đặt lại", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 
     DisposableEffect(lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -169,7 +202,9 @@ fun ScannerScreen(
                                     val scan = detector.detectFromBitmap(
                                         bitmap = bmp,
                                         rotationDegrees = imageProxy.imageInfo.rotationDegrees,
-                                        overlaySizeFraction = OVERLAY_FRACTION
+                                        overlaySizeFraction = OVERLAY_FRACTION,
+                                        viewWidth = previewView.width,
+                                        viewHeight = previewView.height
                                     )
                                     bmp.recycle()
                                     viewModel.onLiveFrameAnalyzed(scan)
@@ -268,6 +303,27 @@ fun ScannerScreen(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
+
+                            if (uiState.scannedCount > 0) {
+                                TextButton(
+                                    onClick = { showResetConfirmDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.RestartAlt,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF87171),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(2.dp))
+                                    Text(
+                                        text = "Đặt lại",
+                                        color = Color(0xFFF87171),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
 
                         Text(
@@ -372,16 +428,35 @@ fun ScannerScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = { showResetConfirmDialog = true },
+                    enabled = uiState.scannedCount > 0,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFF87171),
+                        disabledContentColor = Color.White.copy(alpha = 0.25f)
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (uiState.scannedCount > 0) Color(0xFFF87171).copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Đặt lại", style = MaterialTheme.typography.labelMedium)
+                }
+
                 FilledTonalButton(
                     onClick = { viewModel.clearFace(uiState.currentFace) },
-                    enabled = uiState.currentFace in uiState.capturedFaces
+                    enabled = uiState.currentFace in uiState.capturedFaces,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Chụp lại")
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Chụp lại", style = MaterialTheme.typography.labelMedium)
                 }
 
                 FloatingActionButton(
@@ -396,7 +471,9 @@ fun ScannerScreen(
                                         viewModel.captureFromBitmap(
                                             bitmap = bmp,
                                             rotationDegrees = image.imageInfo.rotationDegrees,
-                                            overlayFraction = OVERLAY_FRACTION
+                                            overlayFraction = OVERLAY_FRACTION,
+                                            viewWidth = previewView.width,
+                                            viewHeight = previewView.height
                                         )
                                     } finally {
                                         image.close()
@@ -428,11 +505,12 @@ fun ScannerScreen(
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (uiState.allFacesScanned) Color(0xFF16A34A) else MaterialTheme.colorScheme.secondary
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Sửa (${uiState.scannedCount}/6)")
+                    Spacer(Modifier.width(4.dp))
+                    Text("Sửa (${uiState.scannedCount}/6)", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

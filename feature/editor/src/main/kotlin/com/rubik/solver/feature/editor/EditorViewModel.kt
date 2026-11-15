@@ -25,9 +25,14 @@ data class EditorUiState(
     val lowConfidenceByFace: Map<CubeFace, Set<Int>> = emptyMap(),
     val validationResult: ValidationResult = CubeValidator.validate(RubikCubeState()),
     val isSolving: Boolean = false,
-    val solveError: String? = null
+    val solveError: String? = null,
+    val searchTimeSeconds: Int = 3
 ) {
     val canSolve: Boolean get() = validationResult.isValid && !isSolving
+    val searchTimeoutMs: Long get() = (searchTimeSeconds * 1000L).coerceIn(
+        RubikSolver.MIN_SEARCH_TIME_MS,
+        RubikSolver.MAX_SEARCH_TIME_MS
+    )
 }
 
 class EditorViewModel(
@@ -100,13 +105,18 @@ class EditorViewModel(
         loadState(RubikCubeState(), emptyMap())
     }
 
+    fun setSearchTimeSeconds(seconds: Int) {
+        val clamped = seconds.coerceIn(1, 15)
+        _uiState.update { it.copy(searchTimeSeconds = clamped) }
+    }
+
     fun solveCube(onSolved: (RubikCubeState, SolveResult.Success) -> Unit) {
         val snapshot = _uiState.value
         if (!snapshot.canSolve) return
 
         _uiState.update { it.copy(isSolving = true, solveError = null) }
         viewModelScope.launch {
-            when (val result = solver.solve(snapshot.cubeState)) {
+            when (val result = solver.solve(snapshot.cubeState, maxSearchTimeMs = snapshot.searchTimeoutMs)) {
                 is SolveResult.Success -> {
                     _uiState.update { it.copy(isSolving = false) }
                     onSolved(snapshot.cubeState, result)

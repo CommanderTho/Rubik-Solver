@@ -78,13 +78,12 @@ class ScannerViewModel(
         val state = _uiState.value
 
         var updatedFace = state.currentFace
-        var updatedInstruction = state.rotationInstructionVi
 
         val centerColor = result.colors.getOrNull(RubikCubeState.CENTER_INDEX)
         val detectedFace = centerColor?.let(::faceForCenterColor)
 
-        // Orient 3D guide cube and current target face by detected center color if not manually locked
-        if (!state.manualFaceLock && !state.allFacesScanned && detectedFace != null && detectedFace !in state.capturedFaces) {
+        // Only before the first face is captured, adapt currentFace to whichever face is held in front of camera
+        if (state.capturedFaces.isEmpty() && !state.manualFaceLock && detectedFace != null) {
             if (detectedFace == pendingAutoFace) {
                 pendingAutoFaceStreak++
             } else {
@@ -94,11 +93,6 @@ class ScannerViewModel(
 
             if (pendingAutoFaceStreak >= FACE_SWITCH_STREAK && detectedFace != state.currentFace) {
                 updatedFace = detectedFace
-                updatedInstruction = if (state.capturedFaces.isEmpty()) {
-                    "Đang hướng vào ${detectedFace.displayNameVi} — Nhấn nút chụp để bắt đầu"
-                } else {
-                    "Đang hướng vào ${detectedFace.displayNameVi} — Nhấn nút chụp để xác nhận"
-                }
             }
         } else {
             pendingAutoFace = null
@@ -110,8 +104,7 @@ class ScannerViewModel(
                 currentFace = updatedFace,
                 livePreviewColors = result.colors,
                 isLowLight = result.isLowLight,
-                hasGlareRisk = result.hasGlareRisk,
-                rotationInstructionVi = updatedInstruction
+                hasGlareRisk = result.hasGlareRisk
             )
         }
     }
@@ -119,7 +112,9 @@ class ScannerViewModel(
     fun captureFromBitmap(
         bitmap: Bitmap,
         rotationDegrees: Int,
-        overlayFraction: Float = 0.68f
+        overlayFraction: Float = 0.64f,
+        viewWidth: Int = 0,
+        viewHeight: Int = 0
     ) {
         if (_uiState.value.isCapturing) return
         _uiState.update { it.copy(isCapturing = true, errorMessage = null) }
@@ -130,7 +125,9 @@ class ScannerViewModel(
                     detector.detectFromBitmap(
                         bitmap = bitmap,
                         rotationDegrees = rotationDegrees,
-                        overlaySizeFraction = overlayFraction
+                        overlaySizeFraction = overlayFraction,
+                        viewWidth = viewWidth,
+                        viewHeight = viewHeight
                     )
                 }
                 applyCaptureResult(result)
@@ -199,6 +196,25 @@ class ScannerViewModel(
                 manualFaceLock = true,
                 guideRotationDirection = GuideRotationDirection.NONE,
                 rotationInstructionVi = "Chụp lại ${face.displayNameVi} — Nhấn nút chụp"
+            )
+        }
+    }
+
+    fun resetAll() {
+        pendingAutoFace = null
+        pendingAutoFaceStreak = 0
+        _uiState.update { state ->
+            ScannerUiState(
+                currentFace = CubeFace.FRONT,
+                capturedFaces = emptyMap(),
+                lowConfidenceByFace = emptyMap(),
+                livePreviewColors = state.livePreviewColors,
+                isLowLight = state.isLowLight,
+                hasGlareRisk = state.hasGlareRisk,
+                isTorchEnabled = state.isTorchEnabled,
+                manualFaceLock = false,
+                rotationInstructionVi = "Chụp một mặt bất kỳ — App sẽ tự nhận diện và hướng dẫn tiếp",
+                guideRotationDirection = GuideRotationDirection.NONE
             )
         }
     }
