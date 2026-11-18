@@ -333,11 +333,19 @@ fun ScannerScreen(
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        Text(
-                            text = uiState.currentFace.orientationHintVi,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.72f)
-                        )
+                        Surface(
+                            color = Color(0x26FDE047),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, Color(0x66FDE047))
+                        ) {
+                            Text(
+                                text = "🧭 ${uiState.currentFace.orientationHintVi}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFDE047),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
                     }
 
                     IconButton(

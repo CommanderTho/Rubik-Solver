@@ -11,38 +11,38 @@ enum class CubeFace(
 ) {
     UP(
         symbol = 'U',
-        displayNameVi = "Mặt Trên (Up)",
-        orientationHintVi = "Hướng mặt Sau (Back) lên trên, mặt Trước (Front) xuống dưới",
+        displayNameVi = "Mặt Trên (Trắng)",
+        orientationHintVi = "Tâm TRẮNG: Cạnh trên là XANH DƯƠNG, cạnh dưới là XANH LÁ",
         defaultColor = CubeColor.WHITE
     ),
     RIGHT(
         symbol = 'R',
-        displayNameVi = "Mặt Phải (Right)",
-        orientationHintVi = "Giữ mặt Trên (Up) hướng lên cạnh trên khung lưới",
+        displayNameVi = "Mặt Phải (Đỏ)",
+        orientationHintVi = "Tâm ĐỎ: Cạnh trên là TRẮNG, cạnh phải là XANH DƯƠNG",
         defaultColor = CubeColor.RED
     ),
     FRONT(
         symbol = 'F',
-        displayNameVi = "Mặt Trước (Front)",
-        orientationHintVi = "Giữ mặt Trên (Up) hướng lên cạnh trên khung lưới",
+        displayNameVi = "Mặt Trước (Xanh lá)",
+        orientationHintVi = "Tâm XANH LÁ: Cạnh trên là TRẮNG, cạnh phải là ĐỎ",
         defaultColor = CubeColor.GREEN
     ),
     DOWN(
         symbol = 'D',
-        displayNameVi = "Mặt Dưới (Down)",
-        orientationHintVi = "Hướng mặt Trước (Front) lên cạnh trên khung lưới",
+        displayNameVi = "Mặt Dưới (Vàng)",
+        orientationHintVi = "Tâm VÀNG: Cạnh trên là XANH LÁ, cạnh dưới là XANH DƯƠNG",
         defaultColor = CubeColor.YELLOW
     ),
     LEFT(
         symbol = 'L',
-        displayNameVi = "Mặt Trái (Left)",
-        orientationHintVi = "Giữ mặt Trên (Up) hướng lên cạnh trên khung lưới",
+        displayNameVi = "Mặt Trái (Cam)",
+        orientationHintVi = "Tâm CAM: Cạnh trên là TRẮNG, cạnh phải là XANH LÁ",
         defaultColor = CubeColor.ORANGE
     ),
     BACK(
         symbol = 'B',
-        displayNameVi = "Mặt Sau (Back)",
-        orientationHintVi = "Giữ mặt Trên (Up) hướng lên cạnh trên khung lưới",
+        displayNameVi = "Mặt Sau (Xanh dương)",
+        orientationHintVi = "Tâm XANH DƯƠNG: Cạnh trên là TRẮNG, cạnh phải là CAM",
         defaultColor = CubeColor.BLUE
     );
 

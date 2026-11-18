@@ -238,9 +238,10 @@ fun Rubik3DGuideCube(
                         close()
                     }
 
-                    // Unscanned faces stay black/dark charcoal by default; scanned faces show real captured color
+                    // Unscanned faces show center reference color and dark charcoal on surrounding tiles;
+                    // scanned faces show full captured colors.
                     val baseColor = scannedColors?.getOrNull(idx)?.let { Color(it.argb) }
-                        ?: Color(0xFF1A202C)
+                        ?: if (idx == 4) Color(face.defaultColor.argb) else Color(0xFF1E293B)
                     val shadedColor = Color(
                         red = (baseColor.red * shadeFactor).coerceIn(0f, 1f),
                         green = (baseColor.green * shadeFactor).coerceIn(0f, 1f),
